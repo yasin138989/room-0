@@ -15,6 +15,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [reservationMessage, setReservationMessage] = useState<string>('');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<{ enabled: boolean; status: string; message: string } | null>(null);
 
   const loadTables = async () => {
     try {
@@ -28,8 +29,19 @@ function App() {
     }
   };
 
+  const loadVoiceStatus = async () => {
+    try {
+      const res = await fetch('/api/v1/livekit/status');
+      const data = await res.json();
+      setVoiceStatus(data);
+    } catch (error) {
+      setVoiceStatus({ enabled: false, status: 'error', message: 'وضعیت صدا قابل‌دریافت نیست' });
+    }
+  };
+
   useEffect(() => {
     loadTables();
+    loadVoiceStatus();
   }, []);
 
   const reserveTable = async (table: TableItem) => {
@@ -61,7 +73,7 @@ function App() {
         <header className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-glow">
           <p className="text-xs uppercase tracking-[0.25em] text-cyan-300">ROOM 0</p>
           <h1 className="mt-2 text-3xl font-bold">اتاق صفر</h1>
-          <p className="mt-2 text-slate-300">رزرو میز و ورود به اتاق‌های آماده</p>
+          <p className="mt-2 text-slate-300">رزرو میز، صدا و وضعیت بازی</p>
         </header>
 
         <main className="grid gap-4 md:grid-cols-3">
@@ -78,6 +90,18 @@ function App() {
             <div className="mt-3 text-3xl font-bold text-yellow-300">{playingTables}</div>
           </div>
         </main>
+
+        <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold">وضعیت صدای زنده</h2>
+          </div>
+          {voiceStatus ? (
+            <div className={`rounded-xl border px-4 py-3 text-sm ${voiceStatus.enabled ? 'border-emerald-500 bg-emerald-500/10 text-emerald-200' : 'border-yellow-500 bg-yellow-500/10 text-yellow-200'}`}>
+              {voiceStatus.message}
+              <div className="mt-2 text-xs opacity-80">وضعیت: {voiceStatus.status}</div>
+            </div>
+          ) : null}
+        </section>
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-4 flex items-center justify-between gap-3">

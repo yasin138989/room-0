@@ -1,0 +1,8 @@
+# ROOM 0 initial seed manifest
+
+This file marks that demo seed data is initialized and isolated from real user data.
+
+- Lobby demo tables
+- Example case set
+- Default game settings
+- Guidance messages

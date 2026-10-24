@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 interface TableItem {
   id: number;
@@ -7,29 +7,53 @@ interface TableItem {
   max_players: number;
   spectator_capacity: number;
   start_time: string | null;
+  available_seats?: number;
 }
 
 function App() {
   const [tables, setTables] = useState<TableItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reservationMessage, setReservationMessage] = useState<string>('');
+  const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
+
+  const loadTables = async () => {
+    try {
+      const res = await fetch('/api/v1/tables');
+      const data = await res.json();
+      setTables(data.items ?? []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/v1/tables')
-      .then((res) => res.json())
-      .then((data) => {
-        setTables(data.items || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    loadTables();
   }, []);
 
-  const statusColors: Record<string, string> = {
-    waiting: 'text-emerald-400',
-    reserved: 'text-yellow-400',
-    playing: 'text-cyan-400',
-    locked: 'text-red-400',
-    finished: 'text-slate-400',
+  const reserveTable = async (table: TableItem) => {
+    setSelectedTableId(table.id);
+    try {
+      const res = await fetch(`/api/v1/tables/${table.id}/reserve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: 1, seat_index: 1 }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setReservationMessage(body.detail || 'رزرو ناموفق بود');
+        return;
+      }
+      setReservationMessage(`${table.name}: ${body.message}`);
+      await loadTables();
+    } catch (error) {
+      setReservationMessage('خطا در رزرو، دوباره تلاش کنید');
+    }
   };
+
+  const waitingTables = useMemo(() => tables.filter((t) => t.status === 'waiting').length, [tables]);
+  const playingTables = useMemo(() => tables.filter((t) => t.status === 'playing').length, [tables]);
 
   return (
     <div className="min-h-screen bg-[#070b16] text-white" dir="rtl">
@@ -37,7 +61,7 @@ function App() {
         <header className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-glow">
           <p className="text-xs uppercase tracking-[0.25em] text-cyan-300">ROOM 0</p>
           <h1 className="mt-2 text-3xl font-bold">اتاق صفر</h1>
-          <p className="mt-2 text-slate-300">داشبورد میزها و وضعیت بازی</p>
+          <p className="mt-2 text-slate-300">رزرو میز و ورود به اتاق‌های آماده</p>
         </header>
 
         <main className="grid gap-4 md:grid-cols-3">
@@ -47,25 +71,27 @@ function App() {
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <div className="text-sm text-slate-400">در انتظار</div>
-            <div className="mt-3 text-3xl font-bold text-emerald-300">
-              {tables.filter((t) => t.status === 'waiting').length}
-            </div>
+            <div className="mt-3 text-3xl font-bold text-emerald-300">{waitingTables}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
             <div className="text-sm text-slate-400">در حال بازی</div>
-            <div className="mt-3 text-3xl font-bold text-yellow-300">
-              {tables.filter((t) => t.status === 'playing').length}
-            </div>
+            <div className="mt-3 text-3xl font-bold text-yellow-300">{playingTables}</div>
           </div>
         </main>
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">فهرست میزها</h2>
             <button className="rounded-xl border border-cyan-500 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-300">
-              رزرو جدید
+              ساخت میز جدید
             </button>
           </div>
+
+          {reservationMessage ? (
+            <div className="mb-4 rounded-xl border border-cyan-700 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
+              {reservationMessage}
+            </div>
+          ) : null}
 
           {loading ? (
             <div className="text-slate-400">در حال بارگذاری...</div>
@@ -80,16 +106,20 @@ function App() {
                   <div>
                     <div className="text-lg font-semibold">{table.name}</div>
                     <div className="mt-1 text-sm text-slate-400">
-                      ظرفیت: {table.max_players} بازیکن • تماشاچی: {table.spectator_capacity}
+                      ظرفیت: {table.max_players} بازیکن • تماشاچی: {table.spectator_capacity} • صندلی‌های خالی: {table.available_seats ?? table.max_players}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <span className={`text-sm font-medium ${statusColors[table.status] || 'text-slate-300'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-medium ${table.status === 'waiting' ? 'text-emerald-400' : table.status === 'playing' ? 'text-cyan-400' : 'text-slate-300'}`}>
                       {table.status}
                     </span>
-                    <button className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-medium text-white">
-                      رزرو
+                    <button
+                      onClick={() => reserveTable(table)}
+                      disabled={selectedTableId === table.id}
+                      className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {selectedTableId === table.id ? 'در حال رزرو...' : 'رزرو'}
                     </button>
                     <button className="rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-200">
                       انتظار

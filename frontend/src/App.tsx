@@ -10,12 +10,21 @@ interface TableItem {
   available_seats?: number;
 }
 
+interface AdminOverview {
+  users_total: number;
+  active_games: number;
+  tables_reserved: number;
+  admins_total: number;
+  status: string;
+}
+
 function App() {
   const [tables, setTables] = useState<TableItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [reservationMessage, setReservationMessage] = useState<string>('');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<{ enabled: boolean; status: string; message: string } | null>(null);
+  const [adminData, setAdminData] = useState<AdminOverview | null>(null);
 
   const loadTables = async () => {
     try {
@@ -34,14 +43,25 @@ function App() {
       const res = await fetch('/api/v1/livekit/status');
       const data = await res.json();
       setVoiceStatus(data);
-    } catch (error) {
+    } catch {
       setVoiceStatus({ enabled: false, status: 'error', message: 'وضعیت صدا قابل‌دریافت نیست' });
+    }
+  };
+
+  const loadAdminOverview = async () => {
+    try {
+      const res = await fetch('/api/v1/admin/overview');
+      const data = await res.json();
+      setAdminData(data);
+    } catch {
+      setAdminData({ users_total: 0, active_games: 0, tables_reserved: 0, admins_total: 0, status: 'error' });
     }
   };
 
   useEffect(() => {
     loadTables();
     loadVoiceStatus();
+    loadAdminOverview();
   }, []);
 
   const reserveTable = async (table: TableItem) => {
@@ -59,7 +79,7 @@ function App() {
       }
       setReservationMessage(`${table.name}: ${body.message}`);
       await loadTables();
-    } catch (error) {
+    } catch {
       setReservationMessage('خطا در رزرو، دوباره تلاش کنید');
     }
   };
@@ -69,25 +89,29 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#070b16] text-white" dir="rtl">
-      <div className="mx-auto max-w-5xl px-4 py-6">
+      <div className="mx-auto max-w-6xl px-4 py-6">
         <header className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-glow">
           <p className="text-xs uppercase tracking-[0.25em] text-cyan-300">ROOM 0</p>
           <h1 className="mt-2 text-3xl font-bold">اتاق صفر</h1>
-          <p className="mt-2 text-slate-300">رزرو میز، صدا و وضعیت بازی</p>
+          <p className="mt-2 text-slate-300">پنل مدیر و میزهای آماده</p>
         </header>
 
-        <main className="grid gap-4 md:grid-cols-3">
+        <main className="grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <div className="text-sm text-slate-400">کل میزها</div>
-            <div className="mt-3 text-3xl font-bold text-cyan-300">{tables.length}</div>
+            <div className="text-sm text-slate-400">کل کاربران</div>
+            <div className="mt-3 text-3xl font-bold text-cyan-300">{adminData?.users_total ?? 0}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <div className="text-sm text-slate-400">در انتظار</div>
-            <div className="mt-3 text-3xl font-bold text-emerald-300">{waitingTables}</div>
+            <div className="text-sm text-slate-400">بازی‌های فعال</div>
+            <div className="mt-3 text-3xl font-bold text-emerald-300">{adminData?.active_games ?? 0}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <div className="text-sm text-slate-400">در حال بازی</div>
-            <div className="mt-3 text-3xl font-bold text-yellow-300">{playingTables}</div>
+            <div className="text-sm text-slate-400">میزهای رزرو شده</div>
+            <div className="mt-3 text-3xl font-bold text-yellow-300">{adminData?.tables_reserved ?? 0}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="text-sm text-slate-400">مدیران</div>
+            <div className="mt-3 text-3xl font-bold text-violet-300">{adminData?.admins_total ?? 0}</div>
           </div>
         </main>
 

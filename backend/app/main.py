@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.routes.admin import router as admin_router
 from app.api.routes.health import router as health_router
 from app.api.routes.livekit import router as livekit_router
 from app.api.routes.tables import router as tables_router
@@ -24,6 +25,7 @@ app.include_router(health_router)
 app.include_router(tables_router)
 app.include_router(ws_router)
 app.include_router(livekit_router)
+app.include_router(admin_router)
 
 
 @app.get('/')

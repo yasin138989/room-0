@@ -8,7 +8,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore',
+    )
 
     app_name: str = 'ROOM 0'
     environment: Literal['development', 'staging', 'production'] = 'development'
@@ -16,7 +20,7 @@ class Settings(BaseSettings):
     backend_host: str = '0.0.0.0'
     backend_port: int = 8000
     jwt_secret_key: str = 'change-me'
-    telegram_bot_token: str = 'token'
+    telegram_bot_token: str = 'replace-me'
     telegram_bot_username: str = 'room0bot'
     telegram_webhook_path: str = '/telegram/webhook'
     telegram_app_url: str = 'https://example.com'
@@ -32,6 +36,8 @@ class Settings(BaseSettings):
     enable_livekit: bool = False
     enable_demo_mode: bool = True
     enable_rewards: bool = False
+    timezone: str = 'Asia/Tehran'
+    app_version: str = '0.1.0'
 
 
 @lru_cache

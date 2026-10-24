@@ -18,17 +18,20 @@ async def get_authenticated_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     if not x_telegram_init_data:
-        raise HTTPException(status_code=401, detail='Telegram initData missing')
+        raise HTTPException(status_code=401, detail='Telegram initData is missing')
 
     try:
         payload = validate_telegram_init_data(x_telegram_init_data, settings.telegram_bot_token)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
-    user_data = payload.get('user') or {}
+    user_data = payload.get('user')
+    if not isinstance(user_data, dict):
+        raise HTTPException(status_code=401, detail='Telegram user payload is missing')
+
     telegram_id = user_data.get('id')
     if not telegram_id:
-        raise HTTPException(status_code=401, detail='Telegram user payload missing')
+        raise HTTPException(status_code=401, detail='Telegram user id is missing')
 
     result = await db.execute(select(User).where(User.telegram_id == int(telegram_id)))
     user = result.scalar_one_or_none()

@@ -2,50 +2,50 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
+from typing import Any
 
 
-def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
-    if not init_data:
-        raise ValueError('init_data is required')
+def validate_telegram_init_data(init_data: str, bot_token: str) -> dict[str, Any]:
+    """Validate Telegram Mini App initData according to Telegram rules."""
+    if not init_data or not bot_token:
+        raise ValueError('Telegram initData or bot token is missing')
 
-    payload: dict[str, str] = {}
+    fields: dict[str, str] = {}
     for item in init_data.split('&'):
         if not item:
             continue
         if '=' not in item:
             continue
-        key, value = item.split('=', 1)
-        payload[key] = value
+        k, v = item.split('=', 1)
+        fields[k] = v
 
-    if 'hash' not in payload:
-        raise ValueError('hash is missing from init_data')
+    if 'hash' not in fields:
+        raise ValueError('hash is missing in initData')
 
-    provided_hash = payload.pop('hash')
-    data_check_string = '\n'.join(f'{key}={payload[key]}' for key in sorted(payload.keys()))
-    secret_key = hashlib.sha256(bot_token.encode()).digest()
-    generated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    provided_hash = fields.pop('hash')
+    data_check_string = '\n'.join(f'{k}={fields[k]}' for k in sorted(fields.keys()))
+    secret_key = hashlib.sha256(bot_token.encode('utf-8')).digest()
+    calc_hash = hmac.new(secret_key, data_check_string.encode('utf-8'), hashlib.sha256).hexdigest()
 
-    if not hmac.compare_digest(generated_hash, provided_hash):
-        raise ValueError('invalid init_data signature')
+    if not hmac.compare_digest(calc_hash, provided_hash):
+        raise ValueError('invalid initData signature')
 
-    auth_date = payload.get('auth_date')
+    auth_date = fields.get('auth_date')
     if auth_date is not None:
         try:
-            timestamp = int(auth_date)
+            ts = int(auth_date)
         except ValueError as exc:
-            raise ValueError('auth_date is invalid') from exc
-        if datetime.now(timezone.utc).timestamp() - timestamp > 86400:
-            raise ValueError('init_data expired')
+            raise ValueError('auth_date is not valid') from exc
+        if datetime.now(timezone.utc).timestamp() - ts > 86400:
+            raise ValueError('initData has expired')
 
-    parsed: dict = {}
-    for key, value in payload.items():
-        if key == 'user':
+    parsed: dict[str, Any] = {}
+    for key, value in fields.items():
+        try:
             parsed[key] = json.loads(value)
-        else:
-            try:
-                parsed[key] = json.loads(value)
-            except json.JSONDecodeError:
-                parsed[key] = value
+        except json.JSONDecodeError:
+            parsed[key] = value
+
     return parsed
